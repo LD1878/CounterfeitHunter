@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counterfeit Hunter Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.10.3/cdn.min.js" defer></script>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans antialiased">
+
+    <div x-data="dashboard()" x-init="fetchData()" class="container mx-auto px-4 py-8">
+        
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-red-500 tracking-tighter">COUNTERFEIT HUNTER</h1>
+                <p class="text-gray-400 text-sm mt-1">Automated Brand Protection Intelligence</p>
+            </div>
+            <div class="text-right">
+                <span class="bg-gray-800 px-3 py-1 rounded text-xs text-gray-500" x-text="'Last scan: ' + lastUpdate"></span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                <div class="text-gray-400 text-xs uppercase">Total Flags</div>
+                <div class="text-2xl font-bold" x-text="items.length">0</div>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                <div class="text-gray-400 text-xs uppercase">Most Active Source</div>
+                <div class="text-2xl font-bold text-blue-400" x-text="getTopSource()">-</div>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                <div class="text-gray-400 text-xs uppercase">Action Status</div>
+                <div class="text-2xl font-bold text-green-400">Active</div>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <input x-model="search" type="text" placeholder="Filter results..." class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:outline-none focus:border-red-500 transition">
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <template x-for="item in filteredItems" :key="item.link">
+                <div class="bg-gray-800 rounded-xl overflow-hidden shadow-lg border border-gray-700 hover:border-red-500/50 transition duration-300 flex flex-col">
+                    
+                    <div class="h-48 bg-gray-900 relative overflow-hidden group">
+                        <img :src="item.image" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" @error="$el.src='https://placehold.co/400x300?text=No+Image'">
+                        <span class="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded" x-text="item.source"></span>
+                    </div>
+
+                    <div class="p-5 flex-1 flex flex-col">
+                        <h3 class="font-bold text-lg leading-tight mb-2 truncate" x-text="item.title"></h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-green-400 font-mono" x-text="item.price"></span>
+                            <span class="text-xs text-gray-500 border border-gray-600 px-2 py-0.5 rounded" x-text="item.suspicion"></span>
+                        </div>
+                        
+                        <div class="mt-auto grid grid-cols-2 gap-2">
+                            <a :href="item.link" target="_blank" class="text-center bg-gray-700 hover:bg-gray-600 text-sm py-2 rounded transition">View Link</a>
+                            <a :href="generateEmail(item)" class="text-center bg-red-600 hover:bg-red-500 text-white text-sm py-2 rounded transition font-bold">Draft DMCA</a>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+        
+        <div x-show="filteredItems.length === 0" class="text-center text-gray-500 py-20">
+            No potential counterfeits found (or data loading...)
+        </div>
+
+    </div>
+
+    <script>
+        function dashboard() {
+            return {
+                items: [],
+                search: '',
+                lastUpdate: new Date().toLocaleDateString(),
+                
+                async fetchData() {
+                    try {
+                        // Cache busting to ensure we get the latest commit
+                        const response = await fetch('data.json?' + new Date().getTime());
+                        this.items = await response.json();
+                    } catch (e) {
+                        console.error("Could not load data.json", e);
+                    }
+                },
+
+                get filteredItems() {
+                    if (this.search === '') return this.items;
+                    return this.items.filter(item => {
+                        return item.title.toLowerCase().includes(this.search.toLowerCase()) ||
+                               item.source.toLowerCase().includes(this.search.toLowerCase());
+                    });
+                },
+
+                getTopSource() {
+                    if (this.items.length === 0) return '-';
+                    const counts = {};
+                    this.items.forEach(x => { counts[x.source] = (counts[x.source] || 0) + 1; });
+                    return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                },
+
+                generateEmail(item) {
+                    const subject = `Intellectual Property Infringement Notice - ${item.source}`;
+                    const body = `To whom it may concern,\n\nI am the owner of the [BRAND] trademark. I have identified unauthorized use of my intellectual property on your platform.\n\nInfringing Listing: ${item.title}\nURL: ${item.link}\n\nPlease remove this listing immediately.\n\nSincerely,\n[YOUR NAME]`;
+                    return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
